@@ -20,6 +20,8 @@ from loss_functions import compute_smooth_loss, compute_photo_and_geometry_loss,
 from logger import TermLogger, AverageMeter
 from tensorboardX import SummaryWriter
 
+import pdb
+
 
 parser = argparse.ArgumentParser(description='Structure from Motion Learner training on KITTI and CityScapes Dataset',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -68,6 +70,7 @@ torch.autograd.set_detect_anomaly(True)
 
 
 def main():
+    pdb.set_trace()
     global best_error, n_iter, device
     args = parser.parse_args()
 
