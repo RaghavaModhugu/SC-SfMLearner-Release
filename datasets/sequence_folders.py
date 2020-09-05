@@ -8,6 +8,8 @@ import os
 import argoverse
 from argoverse.data_loading.argoverse_tracking_loader import ArgoverseTrackingLoader
 
+from skimage.transform import resize
+
 def load_as_float(path):
     return imread(path).astype(np.float32)
 
@@ -60,8 +62,8 @@ class SequenceFolder(data.Dataset):
 
     def __getitem__(self, index):
         sample = self.samples[index]
-        tgt_img = load_as_float(sample['tgt'])[:1152,:]
-        ref_imgs = [load_as_float(ref_img) for ref_img in sample['ref_imgs']]
+        tgt_img = resize(load_as_float(sample['tgt'])[:1024,:1792], (256, 448), anti_aliasing=True)
+        ref_imgs = [resize(load_as_float(ref_img)[:1024,:1792], (256, 448), anti_aliasing=True) for ref_img in sample['ref_imgs']]
         if self.transform is not None:
             imgs, intrinsics = self.transform([tgt_img] + ref_imgs, np.copy(sample['intrinsics']))
             tgt_img = imgs[0]
