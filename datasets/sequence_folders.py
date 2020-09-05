@@ -5,6 +5,8 @@ from path import Path
 import random
 import os
 
+import argoverse
+from argoverse.data_loading.argoverse_tracking_loader import ArgoverseTrackingLoader
 
 def load_as_float(path):
     return imread(path).astype(np.float32)
@@ -30,16 +32,20 @@ class SequenceFolder(data.Dataset):
         self.transform = transform
         self.dataset = dataset
         self.k = skip_frames
-        self.crawl_folders(sequence_length)
+        self.root_dir =  '/ssd_scratch/cvit/raghava.modhugu/'
+        self.argoverse_loader = ArgoverseTrackingLoader(self.root_dir)
+        self.camera = self.argoverse_loader.CAMERA_LIST[0]
+        self.crawl_folders(sequence_length, self.camera, self.argoverse_loader)
 
-    def crawl_folders(self, sequence_length):
+    def crawl_folders(self, sequence_length, camera, argoverse_loader):
         # k skip frames
         sequence_set = []
         demi_length = (sequence_length-1)//2
         shifts = list(range(-demi_length * self.k, demi_length * self.k + 1, self.k))
         shifts.pop(demi_length)
         for scene in self.scenes:
-            intrinsics = np.genfromtxt(scene/'cam.txt').astype(np.float32).reshape((3, 3))
+            log = scene.split('/')[-2]
+            intrinsics = argoverse_loader.get_calibration(camera, log).camera_config.intrinsic[:3, :3].astype(np.float32)
             imgs = sorted(scene.files('*.jpg'))
 
             if len(imgs) < sequence_length:
@@ -54,7 +60,7 @@ class SequenceFolder(data.Dataset):
 
     def __getitem__(self, index):
         sample = self.samples[index]
-        tgt_img = load_as_float(sample['tgt'])
+        tgt_img = load_as_float(sample['tgt'])[:1152,:]
         ref_imgs = [load_as_float(ref_img) for ref_img in sample['ref_imgs']]
         if self.transform is not None:
             imgs, intrinsics = self.transform([tgt_img] + ref_imgs, np.copy(sample['intrinsics']))

@@ -1,5 +1,5 @@
-DATA_ROOT=/media/bjw/Disk
-TRAIN_SET=$DATA_ROOT/Dataset/kitti_256/
+#DATA_ROOT=/media/bjw/Disk
+TRAIN_SET=/ssd_scratch/cvit/raghava.modhugu/sequences/
 python train.py $TRAIN_SET \
 --resnet-layers 18 \
 --num-scales 1 \
@@ -8,5 +8,6 @@ python train.py $TRAIN_SET \
 --with-mask 1 \
 --with-auto-mask 1 \
 --with-pretrain 1 \
---log-output --with-gt \
---name resnet18_depth_256
+--log-output \
+--name resnet18_depth_256 \
+--folder-type sequence
