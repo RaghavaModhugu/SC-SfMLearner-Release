@@ -68,15 +68,12 @@ n_iter = 0
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 torch.autograd.set_detect_anomaly(True)
 
-
 def main():
-    pdb.set_trace()
     global best_error, n_iter, device
     args = parser.parse_args()
-
     timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
     save_path = Path(args.name)
-    args.save_path = 'checkpoints'/save_path/timestamp
+    args.save_path = '/ssd_scratch/cvit/raghava.modhugu/SC-SFM-L'/save_path/timestamp
     print('=> will save everything to {}'.format(args.save_path))
     args.save_path.makedirs_p()
 
@@ -198,7 +195,6 @@ def main():
         logger.reset_train_bar()
         train_loss = train(args, train_loader, disp_net, pose_net, optimizer, args.epoch_size, logger, training_writer)
         logger.train_writer.write(' * Avg Loss : {:.3f}'.format(train_loss))
-
         # evaluate on validation set
         logger.reset_valid_bar()
         if args.with_gt:
@@ -360,7 +356,6 @@ def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, out
         logger.valid_bar.update(i+1)
         if i % args.print_freq == 0:
             logger.valid_writer.write('valid: Time {} Loss {}'.format(batch_time, losses))
-
     logger.valid_bar.update(len(val_loader))
     return losses.avg, ['Total loss', 'Photo loss', 'Smooth loss', 'Consistency loss']
 
