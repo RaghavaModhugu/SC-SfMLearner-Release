@@ -1,4 +1,4 @@
-DATA_ROOT=ssd_scratch/cvit/raghava.modhugu
+DATA_ROOT=/ssd_scratch/cvit/raghava.modhugu
 TRAIN_SET=$DATA_ROOT/sequences
 python train.py $TRAIN_SET \
 --resnet-layers 50 \

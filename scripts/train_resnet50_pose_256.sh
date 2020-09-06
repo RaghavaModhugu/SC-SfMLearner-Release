@@ -1,5 +1,5 @@
-DATA_ROOT=/media/bjw/Disk
-TRAIN_SET=$DATA_ROOT/Dataset/kitti_vo_256/
+DATA_ROOT=/ssd_scratch/cvit/raghava.modhugu
+TRAIN_SET=$DATA_ROOT/sequences
 python train.py $TRAIN_SET \
 --resnet-layers 50 \
 --num-scales 1 \
@@ -9,4 +9,6 @@ python train.py $TRAIN_SET \
 --with-auto-mask 1 \
 --with-pretrain 1 \
 --log-output \
---name resnet50_pose_256
+--name resnet50_pose_256_argoverse \
+--pretrained-disp=/home/raghava.modhugu/SC-SfMLearner-Release/Pretrained_models/resnet50/dispnet_model_best.pth.tar \
+--pretrained-pose=/home/raghava.modhugu/SC-SfMLearner-Release/Pretrained_models/resnet50/exp_pose_model_best.pth.tar
