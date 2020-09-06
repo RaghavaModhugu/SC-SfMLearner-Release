@@ -9,4 +9,4 @@ python train.py $TRAIN_SET \
 --with-auto-mask 1 \
 --with-pretrain 1 \
 --log-output --with-gt \
---name resnet50_depth_256
+--name resnet50_depth_256_argo
