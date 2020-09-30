@@ -262,6 +262,80 @@ def get_tracks(ob_bbox_path, log, track_file_path, argoverse_data, camera):
     return track_file_path
 
 
+def get_tracks_from_video(ob_bbox_path, track_file_path, video_path):
+    ORIGINAL_HEIGHT = 1024
+    ORIGINAL_WIDTH = 1792
+
+    RESIZE_H = 256
+    RESIZE_W = 448
+    
+    object_annotations = pd.read_csv(ob_bbox_path, converters={'class': converter_class})
+    
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    trackfile = open(track_file_path, "w")
+    header='{},{},{},{},{},{},{},{},{},{},{},{}\n'.format('log', 'frame', 'trackid', 'class', 'xmin', 'ymin', 'xmax', 'ymax', 'w_x', 'w_y', 'w_z', 'frame_id')
+    trackfile.writelines(header)
+    
+    global_pose = np.eye(3, dtype = np.float32)
+    intrinsics = np.array([[1396.42, 0, 1007.57], [0, 1396.42, 573.974], [0,0,1]]).astype(np.float32)
+    f_count = 0
+    while True:
+        ret, frame = cap.read()
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype(np.float32)[:1024,:1792]
+        img = imresize(img, (RESIZE_H, RESIZE_W), anti_aliasing=True).astype(np.float32)
+        img = np.transpose(img, (2, 0, 1))
+        tensor_img = torch.from_numpy(img).unsqueeze(0)
+        tensor_img = ((tensor_img/255 - 0.45)/0.225).to(device)
+        disp = disp_net(tensor_img)
+        disp_resized = torch.nn.functional.interpolate(disp,(ORIGINAL_HEIGHT, ORIGINAL_WIDTH), mode="bilinear", align_corners=False)
+        depthmap = (1/disp_resized).detach().cpu().squeeze().numpy()
+        
+        #Pose
+        file1 = argoverse_data.get_image_sync(frame, camera, load=False)
+        file0 = argoverse_data.get_image_sync(frame-1, camera, load=False)
+        img0 = get_resized_img(file0)
+        img1 = get_resized_img(file1)
+        tensor_img0 = ((img0/255 - 0.45)/0.225).to(device)
+        tensor_img1 = ((img1/255 - 0.45)/0.225).to(device)
+        pose = pose_net(tensor_img0, tensor_img1)
+        #pose_6d.append(pose.squeeze(0).detach().cpu().numpy())
+        pose_mat = pose_vec2mat(pose).squeeze(0).detach().cpu().numpy()
+        pose_mat = np.vstack([pose_mat, np.array([0, 0, 0, 1])])
+        global_pose = global_pose @  np.linalg.inv(pose_mat)
+        
+        #get_3d_point(argoverse_data, frame, camera, matched_point)
+        #f = os.path.join(object_det_dir, img_path.split('/')[-3], img_path.split('/')[-2], img_path.split('/')[-1])
+        ob_ann = object_annotations[object_annotations.frame == f_count].values
+        for ann in ob_ann:
+            #print(ann)
+            path_split = ann[1].split('/')
+            x_s, y_s, w, h = ann[-4:]
+            img_path = os.path.join(root_dir, path_split[-3], path_split[-2], path_split[-1])
+            matched_point = x_center, y_center = int(x_s+w/2), int(y_s+h/2)
+            if (x_center > ORIGINAL_WIDTH) or (y_center > ORIGINAL_HEIGHT): 
+                print(x_center, y_center)
+                continue
+            #uvd, point_3d = get_3d_point(argoverse_data, frame, camera, matched_point)
+            uvd, point_3d = generate_pointcloud_from_depthmap(x_center, y_center, depthmap, intrinsics)
+            point = np.ones((4, 1))
+            point[0, 0] = point_3d[0]
+            point[1, 0] = point_3d[1]
+            point[2, 0] = point_3d[2]
+            point_3d = point
+            point_3d = global_pose@point_3d
+            ann = np.append(ann, point_3d.reshape(-1)[:3])
+            ann = np.append(ann, np.array([frame]))
+            line = '{},{},{},{},{},{},{},{},{},{},{},{}\n'.format(ann[0],ann[1],ann[2],ann[3],ann[4],ann[5],ann[6],ann[7],ann[8],ann[9],ann[10],ann[11])
+        f_count+=1
+    trackfile.writelines(line)
+
+    trackfile.close()
+    return track_file_path
+
+
 # In[ ]:
 
 
@@ -309,21 +383,19 @@ def make_forecasting_traj_files(forecasting_file_id, filtered_extracted_trajecto
 
 # In[ ]:
 
-
+pdb.set_trace()
 object_det_dir = '/ssd_scratch/cvit/raghava.modhugu/argoverse_tracking/train'
+object_det_track_file_path = './tracks'
+detection_file_list = [i for i in os.listdir(object_det_track_file_path) if i[-4:] == '.csv']
 st = time.time()
-forecasting_file_id = 0
-for log in argoverse_loader.log_list[1:]:
-    log = '74750688-7475-7475-7475-474752397312'
-    argoverse_data = argoverse_loader.get(log)
-    timestamps = list(argoverse_data.timestamp_lidar_dict.keys())
-    ob_bbox_path = '{}_detection.csv'.format(log)
-    track_file_path = '{}_tracks_bbox.csv'.format(log)
-    path = get_tracks(ob_bbox_path, log, track_file_path, argoverse_data, camera)
+forecasting_file_id = 0  
+for detection_file in detection_file_list:
+    track_file_path = '{}_tracks_bbox.csv'.format(detection_file[:-4])
+    video_path = '/Users/raghavamodhugu/Desktop/video_demo/100hrs_egocentric_videos_1x.mp4'
+    path = get_tracks_from_video(ob_bbox_path, log, track_file_path, video_path)
     extracted_trajectories = pd.read_csv(path)
     filtered_extracted_trajectories = filter_trajectories(extracted_trajectories)
     forecasting_file_id = make_forecasting_traj_files(forecasting_file_id, filtered_extracted_trajectories)
     print(forecasting_file_id)
-    break
 print(time.time()-st)
 
